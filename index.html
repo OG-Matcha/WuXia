@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Simple Chatroom with Gemini API</title>
+        <style>
+            body {
+                color: white;
+                font-family: "Courier New", Courier, monospace;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+                background: #000;
+                /* Default background in case image doesn't load */
+            }
+
+            #backgroundWrapper {
+                width: 80vw;
+                /* Use viewport width units */
+                max-width: 800px;
+                /* Maximum width remains 800px */
+                height: 80vw;
+                /* Height is set to be the same in viewport width units, approximating the width */
+                max-height: 800px;
+                /* Maximum height to match the maximum width */
+                display: flex;
+                justify-content: center;
+                align-items: flex-end;
+                background-image: url("./img/wuxia.gif");
+                /* Replace with your image path */
+                background-size: contain;
+                /* Ensures the image is fully visible without stretching */
+                background-repeat: no-repeat;
+                background-position: center bottom;
+            }
+
+            #gameContainer {
+                width: 100%;
+                /* Takes the full width of the background wrapper */
+                height: 200px;
+                /* Adjusted height to position at the bottom of the image */
+                background: rgba(0, 0, 0, 0.8);
+                /* Semi-transparent black background */
+                padding: 10px;
+                display: none;
+                box-sizing: border-box;
+                border: 1px solid #fff;
+                overflow: hidden;
+            }
+
+            #messages {
+                height: 80%;
+                overflow-y: auto;
+                margin-bottom: 10px;
+            }
+
+            .message {
+                margin: 5px 0;
+            }
+
+            .userMessage {
+                color: #0f0;
+            }
+
+            .botMessage {
+                color: #ff0;
+            }
+
+            #messageInput {
+                width: 100%;
+                padding: 10px;
+                box-sizing: border-box;
+                background: transparent;
+                border: none;
+                border-top: 1px solid #fff;
+                color: white;
+                font-size: 16px;
+            }
+
+            #startButton,
+            #introButton {
+                padding: 15px 30px;
+                /* Increase padding for a better look */
+                font-size: 20px;
+                /* Adjust font size */
+                cursor: pointer;
+                /* Position it within the wrapper */
+                margin-bottom: 20px;
+                color: white;
+                /* Text color */
+                background: rgba(0, 0, 0, 0.8);
+                /* Same semi-transparent background as introBlock */
+                border: 1px solid #fff;
+                /* Same border as introBlock */
+                border-radius: 5px;
+                /* Rounded corners similar to introBlock */
+                box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
+                /* Subtle shadow for depth */
+                transition: all 0.3s ease;
+                /* Smooth transition for hover effects */
+            }
+
+            #startButton:hover,
+            #introButton:hover {
+                background: rgba(0, 0, 0, 1);
+                /* Darker background on hover */
+                box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.5);
+                /* Slightly larger shadow on hover */
+                transform: scale(1.05);
+                /* Slightly enlarge on hover */
+            }
+
+            #introBlock {
+                width: 80%;
+                max-width: 600px;
+                background: rgba(0, 0, 0, 0.8);
+                /* Semi-transparent background */
+                padding: 20px;
+                box-sizing: border-box;
+                border: 1px solid #fff;
+                margin-bottom: 20px;
+                /* Space between intro block and start button */
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                text-align: center;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                /* Initially hidden */
+            }
+
+            #restart,
+            #modal {
+                display: none;
+            }
+
+            .button {
+                padding: 15px 30px;
+                /* Increase padding for a better look */
+                font-size: 20px;
+                /* Adjust font size */
+                cursor: pointer;
+                /* Position it within the wrapper */
+                margin-bottom: 20px;
+                color: white;
+                /* Text color */
+                background: rgba(0, 0, 0, 0.8);
+                /* Same semi-transparent background as introBlock */
+                border: 1px solid #fff;
+                /* Same border as introBlock */
+                border-radius: 5px;
+                /* Rounded corners similar to introBlock */
+                box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
+                /* Subtle shadow for depth */
+                transition: all 0.3s ease;
+                /* Smooth transition for hover effects */
+            }
+
+            .button:hover {
+                background: rgba(0, 0, 0, 1);
+                /* Darker background on hover */
+                box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.5);
+                /* Slightly larger shadow on hover */
+                transform: scale(1.05);
+                /* Slightly enlarge on hover */
+            }
+
+            .full {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                width: 100%;
+                margin: 0;
+                /* Default background in case image doesn't load */
+            }
+        </style>
+    </head>
+
+    <body>
+        <audio id="background" src="./audio/下山.mp3" loop>
+            Your browser does not support the audio element.
+        </audio>
+        <div id="modal">
+            <div id="introBlock">
+                <h2>歡迎來到《俠之道》</h2>
+                <p>
+                    在《俠之道》中，每一個選擇都將帶來不同的結果和體驗。你將扮演一位初出茅廬的俠客，行走江湖，面對各種挑戰和抉擇。請幫助他在這個充滿正邪之爭的世界中找到自己的道路。這是一場沒有絕對對錯的旅程，你可以自由選擇如何行俠仗義，體驗江湖中的恩怨情仇與愛恨糾葛。每一次決定都將塑造你的俠客之道，請享受這段充滿變數的冒險。
+                </p>
+                <button id="startButton">Start Game</button>
+            </div>
+        </div>
+        <div id="backgroundWrapper">
+            <div class="full">
+                <div class="full">
+                    <button id="restart" class="button">重新開始</button>
+                </div>
+                <div id="gameContainer">
+                    <div id="messages"></div>
+                    <form id="messageForm">
+                        <input
+                            type="text"
+                            id="messageInput"
+                            placeholder="Type your command..."
+                        />
+                    </form>
+                </div>
+                <button id="introButton">遊戲介紹</button>
+            </div>
+        </div>
+    </body>
+    <script>
+        var conversationHistory = [];
+
+        var apiKey = prompt("Please enter your API key:", "");
+
+        window.onload = function () {
+            document.getElementById("background").play();
+            document.getElementById("background").volume = 0.2;
+        };
+
+        if (!apiKey) {
+            alert("API key are required to use the chatroom.");
+            // Optionally, redirect or disable form
+        } else {
+            document
+                .getElementById("messageForm")
+                .addEventListener("submit", function (event) {
+                    event.preventDefault();
+                    var inputElement = document.getElementById("messageInput");
+                    var message = inputElement.value;
+
+                    addToConversationHistory("user", message);
+                    displayMessage(message, "user");
+                    inputElement.disabled = true;
+                    fetch(
+                        "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" +
+                            apiKey,
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify({
+                                contents: conversationHistory,
+                                safetySettings: [
+                                    {
+                                        category:
+                                            "HARM_CATEGORY_DANGEROUS_CONTENT",
+                                        threshold: "BLOCK_NONE",
+                                    },
+                                    {
+                                        category:
+                                            "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                                        threshold: "BLOCK_NONE",
+                                    },
+                                ],
+                                generationConfig: {
+                                    stopSequences: [""],
+                                    temperature: 2.0,
+                                    maxOutputTokens: 2048,
+                                    topP: 0.8,
+                                    topK: 10,
+                                },
+                            }),
+                        }
+                    )
+                        .then((response) => response.json())
+                        .then((data) => {
+                            var responseText =
+                                data.candidates[0].content.parts[0].text;
+                            addToConversationHistory("model", responseText);
+                            displayMessage(responseText, "bot");
+                            inputElement.disabled = false;
+                        })
+                        .catch((error) => {
+                            console.error("Error:", error);
+                            inputElement.disabled = false;
+                        });
+
+                    document.getElementById("messageInput").value = "";
+                });
+        }
+
+        function addToConversationHistory(role, text) {
+            conversationHistory.push({
+                role: role,
+                parts: [
+                    {
+                        text: text,
+                    },
+                ],
+            });
+        }
+
+        function displayMessage(message, sender) {
+            var messageElement = document.createElement("div");
+            var formatMessage = formatText(message);
+            messageElement.classList.add("message");
+            if (sender === "user") {
+                messageElement.classList.add("userMessage");
+            } else {
+                messageElement.classList.add("botMessage");
+            }
+            document.getElementById("messages").appendChild(messageElement);
+            updateSceneImage(message);
+            checkStop(message);
+            // Function to display the text one character at a time
+            function typeText(element, text, index) {
+                if (index < text.length) {
+                    let char = text[index];
+                    if (char === "<") {
+                        let endIndex = text.indexOf(">", index);
+                        if (endIndex !== -1) {
+                            element.innerHTML += text.substring(
+                                index,
+                                endIndex + 1
+                            );
+                            index = endIndex + 1;
+                        }
+                    } else {
+                        element.innerHTML += char;
+                        index++;
+                    }
+                    setTimeout(function () {
+                        typeText(element, text, index);
+                    }, 75); // Adjust typing speed by changing the delay (in milliseconds)
+                } else {
+                    // Scroll to bottom after the entire message is displayed
+                    document.getElementById("messages").scrollTop =
+                        document.getElementById("messages").scrollHeight;
+                }
+            }
+
+            // Start typing the formatted message
+            typeText(messageElement, formatMessage, 0);
+        }
+
+        function checkStop(responseText) {
+            if (responseText.includes("結局")) {
+                document.getElementById("messageInput").disabled = true;
+                document.getElementById("restart").style.display = "block";
+            }
+        }
+
+        function updateSceneImage(responseText) {
+            let sceneMatch = responseText.match(/場景：(.*?)\s/); // 使用正則表達式匹配場景描述
+            if (sceneMatch && sceneMatch[1]) {
+                let scene = sceneMatch[1];
+                console.log(scene);
+
+                if (scene.includes("出生")) {
+                    document.getElementById(
+                        "backgroundWrapper"
+                    ).style.backgroundImage = "url('./img/Born.png')";
+                } else if (scene.includes("童年")) {
+                    document.getElementById(
+                        "backgroundWrapper"
+                    ).style.backgroundImage = "url('./img/creep.png')";
+                } else if (scene.includes("選擇志向")) {
+                    document.getElementById(
+                        "backgroundWrapper"
+                    ).style.backgroundImage = "url('./img/Choose.png')";
+                } else if (scene.includes("離家")) {
+                    document.getElementById(
+                        "backgroundWrapper"
+                    ).style.backgroundImage = "url('./img/Leave.jpg')";
+                } else if (scene.includes("成年")) {
+                    document.getElementById(
+                        "backgroundWrapper"
+                    ).style.backgroundImage = "url('./img/Adult.jpg')";
+                } else if (scene.includes("獲得寶物")) {
+                    document.getElementById(
+                        "backgroundWrapper"
+                    ).style.backgroundImage = "url('./img/Treasure.png')";
+                } else if (scene.includes("遇上美女")) {
+                    let random = Math.floor(Math.random() * 2) + 1;
+                    if (random === 1) {
+                        document.getElementById(
+                            "backgroundWrapper"
+                        ).style.backgroundImage = "url('./img/Beauty_1.jpg')";
+                    } else {
+                        document.getElementById(
+                            "backgroundWrapper"
+                        ).style.backgroundImage = "url('./img/Beauty_2.png')";
+                    }
+                } else if (scene.includes("獲得寶物")) {
+                    document.getElementById(
+                        "backgroundWrapper"
+                    ).style.backgroundImage = "url('./img/Treasure.png')";
+                } else if (scene.includes("成親")) {
+                    document.getElementById(
+                        "backgroundWrapper"
+                    ).style.backgroundImage = "url('./img/Couple.png')";
+                } else if (scene.includes("白天遭遇敵人")) {
+                    document.getElementById(
+                        "backgroundWrapper"
+                    ).style.backgroundImage = "url('./img/Day_Enemy.png')";
+                } else if (scene.includes("夜晚遭遇敵人")) {
+                    document.getElementById(
+                        "backgroundWrapper"
+                    ).style.backgroundImage = "url('./img/Night_Enemy.png')";
+                } else if (scene.includes("老年")) {
+                    document.getElementById(
+                        "backgroundWrapper"
+                    ).style.backgroundImage = "url('./img/Old.jpg')";
+                } else if (scene.includes("傲視江湖")) {
+                    document.getElementById(
+                        "backgroundWrapper"
+                    ).style.backgroundImage = "url('./img/JiangHu_1.png')";
+                } else if (scene.includes("浪跡江湖")) {
+                    document.getElementById(
+                        "backgroundWrapper"
+                    ).style.backgroundImage = "url('./img/JiangHu_2.png')";
+                } else if (scene.includes("橫死江湖")) {
+                    document.getElementById(
+                        "backgroundWrapper"
+                    ).style.backgroundImage = "url('./img/JiangHu_3.png')";
+                }
+            }
+        }
+
+        function formatText(text) {
+            // Replace ** with a new line and bold tag
+            let formattedText = text.replace(
+                /\*\*(.*?)\*\*/g,
+                "<br><strong>$1</strong>"
+            );
+
+            // Replace * with a new line and bullet point
+            formattedText = formattedText.replace(/\*(.*?)\s/g, "<br>$1");
+
+            return formattedText;
+        }
+
+        document
+            .getElementById("introButton")
+            .addEventListener("click", function () {
+                document.getElementById("modal").style.display = "block";
+                this.style.display = "none"; // Hide the intro button
+                document.getElementById("startButton").style.display = "block"; // Show the start button
+            });
+
+        document
+            .getElementById("restart")
+            .addEventListener("click", function () {
+                conversationHistory = [];
+                document.getElementById("messages").innerHTML = "";
+                document.getElementById("restart").style.display = "none";
+                startGame();
+            });
+
+        function startGame() {
+            // Change background image and display settings when starting the game
+            document.getElementById("backgroundWrapper").style.backgroundImage =
+                "url('./img/Born.png')";
+            document.getElementById("introBlock").style.display = "none"; // Show the game container
+            document.getElementById("gameContainer").style.display = "inline";
+            document.getElementById("introButton").style.display = "none"; // Hide the start button
+
+            conversationHistory.push({
+                role: "user",
+                parts: [
+                    {
+                        text: `你是一個文字冒險遊戲的敘述者，遊戲名為《俠之道》。這是一款開放式武俠冒險遊戲，玩家將經歷俠客的一生，從出生到老年。你的任務是根據玩家的選擇創建一個連貫且引人入勝的故事情節，每個情境產生後都要等待玩家進行選擇。請遵循以下指引：
+
+                            # 開始遊戲：隨機生成一個出生情境，描述玩家作為主角的出生背景。
+
+                            # 進行遊戲：在每個階段（童年、選擇志向、離家、成年、獲得寶物、遇上美女、成親、白天遭遇敵人、夜晚遭遇敵人、老年）提供多個選項，讓玩家選擇。每個選項應引導至不同的事件或結果。
+
+                            # 描述細節：在每個情境中，提供豐富的描述和細節，讓玩家感受到身臨其境的武俠世界，將情境和選項之間換行。
+
+                            # 關鍵決策：玩家的每個選擇都應對接下來的故事產生重要影響，確保故事具有開放性和可變性。
+
+                            # 結局：根據玩家在整個遊戲中的選擇，展現玩家作為俠客的最終命運。
+
+                            # 場景：根據目前場景決定故事發展情境，總共有「出生」、「童年」、「選擇志向」、「離家」、「成年」、「獲得寶物」、「遇上美女」、「成親」、「白天遭遇敵人」、「夜晚遭遇敵人」、「老年」、「傲視江湖」、「浪跡江湖」、「橫死江湖」等固定場景。
+
+                            # 劇情範例 (做出修改)：
+
+                            場景：出生
+
+                            出生情境：
+                            描述玩家的出生背景，例如：“您出生在一個被群山環繞的小村莊，您的父母是普通的農民，但您的命運註定非凡。當您第一次呼吸時，一位神秘的老者來到您家，預言您的未來將非常偉大。接下來會發生什麼？”
+
+                            選項A：“您的父母決定將您送到附近的寺廟接受教育。”
+                            選項B：“老者離開前留下了一卷古老的卷軸，然後消失在夜色中。”
+                            選項C：“您的村莊遭到襲擊，您被藏起來以保護安全。”
+
+                            # 遊戲指引：
+                            童年階段：描述童年經歷和初次接觸武學或文學的情景。
+                            選擇志向：讓玩家選擇成為武學高手或學者，並描述各自的修行過程。
+                            成年階段：描述成年的挑戰、冒險和成就。
+                            老年階段：總結玩家的一生，揭示最終命運。
+
+                            請開始《俠之道》的冒險故事，並根據玩家的選擇引導故事發展。每個階段都應提供豐富的選項和結果，讓玩家的每個決定都能帶來獨特的遊戲體驗。`,
+                    },
+                ],
+            });
+            fetch(
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" +
+                    apiKey,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        contents: conversationHistory,
+                        safetySettings: [
+                            {
+                                category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                                threshold: "BLOCK_NONE",
+                            },
+                            {
+                                category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                                threshold: "BLOCK_NONE",
+                            },
+                        ],
+                        generationConfig: {
+                            stopSequences: [""],
+                            temperature: 2.0,
+                            maxOutputTokens: 2048,
+                            topP: 0.8,
+                            topK: 10,
+                        },
+                    }),
+                }
+            )
+                .then((response) => response.json())
+                .then((data) => {
+                    console.log(conversationHistory);
+                    var responseText = data.candidates[0].content.parts[0].text;
+                    addToConversationHistory("model", responseText);
+                    displayMessage(responseText, "bot");
+                })
+                .catch((error) => console.error("Error:", error));
+        }
+
+        document
+            .getElementById("startButton")
+            .addEventListener("click", startGame);
+    </script>
+</html>
