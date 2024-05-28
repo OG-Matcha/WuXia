@@ -135,6 +135,7 @@
                 /* Initially hidden */
             }
 
+            #background,
             #restart,
             #modal {
                 display: none;
@@ -184,9 +185,12 @@
     </head>
 
     <body>
-        <audio id="background" src="./audio/下山.mp3" loop>
-            Your browser does not support the audio element.
-        </audio>
+        <video loop id="background" name="media">
+            <source
+                src="https://github.com/OG-Matcha/WuXia/raw/32bea18b470a806ed09ae6a0c9555c1e1b13b31e/audio/%E4%B8%8B%E5%B1%B1.mp3"
+                type="audio/mp3"
+            />
+        </video>
         <div id="modal">
             <div id="introBlock">
                 <h2>歡迎來到《俠之道》</h2>
