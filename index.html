@@ -220,11 +220,6 @@
 
         var apiKey = prompt("Please enter your API key:", "");
 
-        window.onload = function () {
-            document.getElementById("background").play();
-            document.getElementById("background").volume = 0.2;
-        };
-
         if (!apiKey) {
             alert("API key are required to use the chatroom.");
             // Optionally, redirect or disable form
@@ -442,6 +437,8 @@
         document
             .getElementById("introButton")
             .addEventListener("click", function () {
+                document.getElementById("background").volume = 0.2;
+                document.getElementById("background").play();
                 document.getElementById("modal").style.display = "block";
                 this.style.display = "none"; // Hide the intro button
                 document.getElementById("startButton").style.display = "block"; // Show the start button
